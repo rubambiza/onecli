@@ -142,11 +142,10 @@ impl JwksManager {
         self.maybe_refresh().await;
 
         let cache = self.cache.read().await;
-        self.try_decode(token, kid, &cache.keys)?
-            .ok_or_else(|| {
-                warn!(kid = ?kid, "JWT kid not found in JWKS after refresh");
-                AuthError("invalid token".to_string())
-            })
+        self.try_decode(token, kid, &cache.keys)?.ok_or_else(|| {
+            warn!(kid = ?kid, "JWT kid not found in JWKS after refresh");
+            AuthError("invalid token".to_string())
+        })
     }
 
     /// Try to decode the token using the cached keys.

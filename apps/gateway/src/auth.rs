@@ -96,8 +96,7 @@ impl FromRequestParts<GatewayState> for AuthUser {
         }
 
         // Fall back to session auth (OIDC JWT, NextAuth cookie, or local mode)
-        let user_id =
-            validate_request(pool, &parts.headers, state.jwks.as_ref()).await?;
+        let user_id = validate_request(pool, &parts.headers, state.jwks.as_ref()).await?;
 
         // Resolve account from membership
         let account_id = db::find_account_id_by_user(pool, &user_id)
@@ -199,10 +198,7 @@ async fn validate_oauth(
 async fn try_bearer_jwt(headers: &HeaderMap, jwks: Option<&JwksManager>) -> Option<String> {
     let jwks = jwks?;
 
-    let auth_header = headers
-        .get(hyper::header::AUTHORIZATION)?
-        .to_str()
-        .ok()?;
+    let auth_header = headers.get(hyper::header::AUTHORIZATION)?.to_str().ok()?;
 
     let token = auth_header
         .strip_prefix("Bearer ")
@@ -223,10 +219,7 @@ async fn try_bearer_jwt(headers: &HeaderMap, jwks: Option<&JwksManager>) -> Opti
 }
 
 /// Validate a NextAuth session cookie (HS256 JWT signed with NEXTAUTH_SECRET).
-async fn validate_nextauth_cookie(
-    pool: &PgPool,
-    headers: &HeaderMap,
-) -> Result<String, AuthError> {
+async fn validate_nextauth_cookie(pool: &PgPool, headers: &HeaderMap) -> Result<String, AuthError> {
     let cookie_header = headers
         .get(hyper::header::COOKIE)
         .and_then(|v| v.to_str().ok())
