@@ -17,7 +17,7 @@ export const LoginContent = () => {
 
     const syncUser = async () => {
       try {
-        const res = await fetch("/api/auth/session");
+        const res = await fetch("/api/auth/sync");
         if (res.ok) {
           router.replace("/overview");
         } else {
