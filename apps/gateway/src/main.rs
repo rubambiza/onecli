@@ -148,7 +148,9 @@ async fn main() -> Result<()> {
     // so JWKS is not required for browser-based auth to work.
     let jwks = match std::env::var("OAUTH_ISSUER") {
         Ok(issuer) => {
-            let manager = jwks::JwksManager::new(&issuer).await?;
+            let audience = std::env::var("OAUTH_AUDIENCE")
+                .context("OAUTH_AUDIENCE must be set when OAUTH_ISSUER is set")?;
+            let manager = jwks::JwksManager::new(&issuer, audience).await?;
             Some(manager)
         }
         Err(_) => None,

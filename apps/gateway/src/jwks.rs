@@ -70,6 +70,7 @@ pub(crate) struct AccessTokenClaims {
 #[derive(Clone)]
 pub(crate) struct JwksManager {
     issuer: String,
+    audience: String,
     jwks_uri: String,
     cache: Arc<RwLock<CachedKeys>>,
     http_client: reqwest::Client,
@@ -84,7 +85,7 @@ impl JwksManager {
     /// Fetches `{issuer_url}/.well-known/openid-configuration` to discover
     /// the `jwks_uri`, then fetches the initial key set. Fails if the
     /// discovery document or JWKS cannot be fetched.
-    pub async fn new(issuer_url: &str) -> Result<Self> {
+    pub async fn new(issuer_url: &str, audience: String) -> Result<Self> {
         let http_client = reqwest::Client::new();
         let base = issuer_url.trim_end_matches('/');
 
@@ -109,6 +110,7 @@ impl JwksManager {
 
         Ok(Self {
             issuer: discovery.issuer,
+            audience,
             jwks_uri: discovery.jwks_uri,
             cache: Arc::new(RwLock::new(CachedKeys {
                 keys,
@@ -173,7 +175,7 @@ impl JwksManager {
         let mut validation = Validation::default();
         validation.algorithms = ACCEPTED_ALGORITHMS.to_vec();
         validation.set_issuer(&[&self.issuer]);
-        validation.validate_aud = false;
+        validation.set_audience(&[&self.audience]);
 
         let token_data: TokenData<AccessTokenClaims> =
             decode(token, key, &validation).map_err(|e| {
