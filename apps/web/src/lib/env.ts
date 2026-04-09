@@ -53,6 +53,14 @@ export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
 
+// ── OIDC Login Provider ────────────────────────────────────────────────
+
+export const OAUTH_ISSUER = process.env.OAUTH_ISSUER ?? "";
+
+export const OAUTH_CLIENT_ID = process.env.OAUTH_CLIENT_ID ?? "";
+
+export const OAUTH_CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET ?? "";
+
 // ── Cloud: Cognito ──────────────────────────────────────────────────────
 
 export const COGNITO_CLIENT_ID =
