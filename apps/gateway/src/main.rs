@@ -27,6 +27,7 @@ mod crypto;
 mod db;
 mod gateway;
 mod inject;
+mod jwks;
 mod policy;
 mod vault;
 
@@ -141,10 +142,22 @@ async fn main() -> Result<()> {
     // OSS: in-memory DashMap. Cloud: Redis (ElastiCache with TLS + AUTH).
     let cache = cache::create_store().await?;
 
+    // Initialize OIDC JWKS manager for OAuth access token validation.
+    // Optional: enabled when OAUTH_ISSUER is set. The gateway also accepts
+    // NextAuth session cookies (HS256 via NEXTAUTH_SECRET) as a fallback,
+    // so JWKS is not required for browser-based auth to work.
+    let jwks = match std::env::var("OAUTH_ISSUER") {
+        Ok(issuer) => {
+            let manager = jwks::JwksManager::new(&issuer).await?;
+            Some(manager)
+        }
+        Err(_) => None,
+    };
+
     info!(port = cli.port, "gateway ready");
 
     // Start the gateway server (blocks forever)
-    let server = GatewayServer::new(ca, cli.port, policy_engine, vault_service, cache);
+    let server = GatewayServer::new(ca, cli.port, policy_engine, vault_service, cache, jwks);
     server.run().await
 }
 
