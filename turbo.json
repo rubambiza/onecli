@@ -60,7 +60,9 @@
         "REDIS_PORT",
         "REDIS_PASSWORD",
         "REDIS_TLS",
-        "COGNITO_USER_POOL_ID"
+        "COGNITO_USER_POOL_ID",
+        "AUTH_MODE",
+        "OAUTH_ISSUER"
       ]
     },
     "@onecli/gateway#check": {
