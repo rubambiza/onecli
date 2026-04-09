@@ -9,7 +9,7 @@ import { generateAccessToken } from "@/lib/services/agent-service";
 import { getSessionAttributes, onUserCreated } from "@/lib/auth/session-hooks";
 
 /**
- * GET /api/auth/session
+ * GET /api/auth/sync
  *
  * Single endpoint that handles the full auth → DB sync flow:
  * 1. Reads the auth session (cookie/token)
@@ -141,10 +141,7 @@ export const GET = async (request: NextRequest) => {
       name: user.name,
     });
   } catch (err) {
-    logger.error(
-      { err, route: "GET /api/auth/session" },
-      "session sync failed",
-    );
+    logger.error({ err, route: "GET /api/auth/sync" }, "session sync failed");
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
