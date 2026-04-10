@@ -59,6 +59,13 @@ export const OAUTH_ISSUER = process.env.OAUTH_ISSUER ?? "";
 
 export const OAUTH_JWKS_URL = process.env.OAUTH_JWKS_URL ?? "";
 
+export const OAUTH_AUTHORIZATION_URL =
+  process.env.OAUTH_AUTHORIZATION_URL ?? "";
+
+export const OAUTH_TOKEN_URL = process.env.OAUTH_TOKEN_URL ?? "";
+
+export const OAUTH_USERINFO_URL = process.env.OAUTH_USERINFO_URL ?? "";
+
 export const OAUTH_CLIENT_ID = process.env.OAUTH_CLIENT_ID ?? "";
 
 export const OAUTH_CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET ?? "";
