@@ -150,7 +150,8 @@ async fn main() -> Result<()> {
         Ok(issuer) => {
             let audience = std::env::var("OAUTH_AUDIENCE")
                 .context("OAUTH_AUDIENCE must be set when OAUTH_ISSUER is set")?;
-            let manager = jwks::JwksManager::new(&issuer, audience).await?;
+            let jwks_url = std::env::var("OAUTH_JWKS_URL").ok();
+            let manager = jwks::JwksManager::new(&issuer, audience, jwks_url).await?;
             Some(manager)
         }
         Err(_) => None,

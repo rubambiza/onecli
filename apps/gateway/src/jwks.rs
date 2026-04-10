@@ -80,38 +80,48 @@ pub(crate) struct JwksManager {
 const ACCEPTED_ALGORITHMS: &[Algorithm] = &[Algorithm::RS256, Algorithm::RS384, Algorithm::RS512];
 
 impl JwksManager {
-    /// Create a new JWKS manager by performing OIDC discovery.
+    /// Create a new JWKS manager.
     ///
-    /// Fetches `{issuer_url}/.well-known/openid-configuration` to discover
-    /// the `jwks_uri`, then fetches the initial key set. Fails if the
-    /// discovery document or JWKS cannot be fetched.
-    pub async fn new(issuer_url: &str, audience: String) -> Result<Self> {
+    /// When `jwks_url_override` is provided, uses it directly to fetch keys
+    /// (skipping OIDC discovery). Otherwise performs standard OIDC discovery
+    /// via `{issuer_url}/.well-known/openid-configuration`.
+    pub async fn new(
+        issuer_url: &str,
+        audience: String,
+        jwks_url_override: Option<String>,
+    ) -> Result<Self> {
         let http_client = reqwest::Client::new();
         let base = issuer_url.trim_end_matches('/');
 
-        let discovery_url = format!("{base}/.well-known/openid-configuration");
-        let discovery: OidcDiscovery = http_client
-            .get(&discovery_url)
-            .send()
-            .await
-            .context("fetching OIDC discovery document")?
-            .json()
-            .await
-            .context("parsing OIDC discovery document")?;
+        let (issuer, jwks_uri) = if let Some(url) = jwks_url_override {
+            info!(jwks_uri = %url, "using OAUTH_JWKS_URL override, skipping OIDC discovery");
+            (base.to_string(), url)
+        } else {
+            let discovery_url = format!("{base}/.well-known/openid-configuration");
+            let discovery: OidcDiscovery = http_client
+                .get(&discovery_url)
+                .send()
+                .await
+                .context("fetching OIDC discovery document")?
+                .json()
+                .await
+                .context("parsing OIDC discovery document")?;
 
-        info!(
-            issuer = %discovery.issuer,
-            jwks_uri = %discovery.jwks_uri,
-            "OIDC discovery loaded"
-        );
+            info!(
+                issuer = %discovery.issuer,
+                jwks_uri = %discovery.jwks_uri,
+                "OIDC discovery loaded"
+            );
+            (discovery.issuer, discovery.jwks_uri)
+        };
 
-        let keys = fetch_jwks(&http_client, &discovery.jwks_uri).await?;
+        let keys = fetch_jwks(&http_client, &jwks_uri).await?;
         info!(key_count = keys.len(), "JWKS loaded");
 
         Ok(Self {
-            issuer: discovery.issuer,
+            issuer,
             audience,
-            jwks_uri: discovery.jwks_uri,
+            jwks_uri,
             cache: Arc::new(RwLock::new(CachedKeys {
                 keys,
                 fetched_at: Instant::now(),

@@ -2,6 +2,7 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import type { Provider } from "next-auth/providers";
 import {
   OAUTH_ISSUER,
+  OAUTH_JWKS_URL,
   OAUTH_CLIENT_ID,
   OAUTH_CLIENT_SECRET,
   NEXTAUTH_SECRET,
@@ -22,6 +23,7 @@ const oidcProvider: Provider = {
   issuer: OAUTH_ISSUER,
   clientId: OAUTH_CLIENT_ID,
   clientSecret: OAUTH_CLIENT_SECRET,
+  ...(OAUTH_JWKS_URL ? { jwks_endpoint: OAUTH_JWKS_URL } : {}),
 };
 
 export const { auth, handlers } = NextAuth({
