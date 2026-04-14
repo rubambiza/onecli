@@ -109,3 +109,56 @@ export const validateJwt = async (
     return null;
   }
 };
+
+// ── Identity resolution (JWT verify + email/name from claims) ──────────
+
+export interface ResolvedIdentity {
+  sub: string;
+  email: string;
+  name?: string;
+}
+
+/**
+ * Verify a JWT access token and resolve the user's identity (sub + email + name)
+ * from the token claims, without performing a database lookup.
+ *
+ * Returns null if the JWT is invalid or the email claim is missing.
+ */
+export const verifyAndResolveIdentity = async (
+  request: Request,
+): Promise<ResolvedIdentity | null> => {
+  if (!OAUTH_ISSUER) return null;
+
+  const token = extractBearerToken(request);
+  if (!token) return null;
+
+  const getKey = await getKeyFunction();
+  if (!getKey) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, getKey, {
+      issuer: OAUTH_ISSUER,
+      audience: OAUTH_AUDIENCE || undefined,
+      algorithms: ["RS256", "RS384", "RS512"],
+    });
+
+    const sub = payload.sub;
+    if (!sub) {
+      log.warn("JWT missing sub claim");
+      return null;
+    }
+
+    const email = typeof payload.email === "string" ? payload.email : undefined;
+    if (!email) {
+      log.warn({ sub }, "JWT missing email claim");
+      return null;
+    }
+
+    const name = typeof payload.name === "string" ? payload.name : undefined;
+
+    return { sub, email, name };
+  } catch (err) {
+    log.warn({ err }, "JWT verification failed");
+    return null;
+  }
+};
