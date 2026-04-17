@@ -21,3 +21,7 @@ export const secretModeSchema = z.object({
 export const updateAgentSecretsSchema = z.object({
   secretIds: z.array(z.string()),
 });
+
+export const updateAgentAppConnectionsSchema = z.object({
+  appConnectionIds: z.array(z.string()),
+});
