@@ -91,8 +91,8 @@ export const githubEnterprise: AppDefinition = {
         name: "baseUrl",
         label: "Enterprise URL",
         description:
-          "The root URL of your GitHub Enterprise Server (e.g. https://github.ibm.com).",
-        placeholder: "https://github.ibm.com",
+          "The root URL of your GitHub Enterprise Server (e.g. https://github.example.com).",
+        placeholder: "https://github.example.com",
         required: true,
       },
       {

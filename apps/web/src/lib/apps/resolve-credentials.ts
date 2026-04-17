@@ -1,4 +1,6 @@
 import { getAppConfigCredentials } from "@/lib/services/app-config-service";
+import { logger } from "@/lib/logger";
+import { normalizeBaseUrl } from "./validate-base-url";
 import type { AppDefinition, OAuthConfigField } from "./types";
 
 export interface ResolvedCredentials {
@@ -65,7 +67,18 @@ export const resolveOAuthCredentials = async (
   const config: Record<string, string> = {};
   for (const field of app.configurable.fields) {
     if (STANDARD_FIELDS.has(field.name)) continue;
-    const value = resolveField(field, appConfig, envDefaults);
+    let value = resolveField(field, appConfig, envDefaults);
+    if (value && field.name === "baseUrl") {
+      try {
+        value = normalizeBaseUrl(value);
+      } catch (err) {
+        logger.warn(
+          { err, provider: app.id },
+          "baseUrl from AppConfig or env did not pass validation; treating as not configured",
+        );
+        return null;
+      }
+    }
     if (value) {
       config[field.name] = value;
     } else if (field.required) {
