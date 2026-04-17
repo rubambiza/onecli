@@ -4,7 +4,6 @@ import { getServerSession } from "@/lib/auth/server";
 import { verifyAndResolveIdentity } from "@/lib/validate-jwt";
 import { logger } from "@/lib/logger";
 import { DEFAULT_AGENT_NAME } from "@/lib/constants";
-import { seedDemoSecret } from "@/lib/services/secret-service";
 import { generateApiKey } from "@/lib/services/api-key-service";
 import { generateAccessToken } from "@/lib/services/agent-service";
 import { getSessionAttributes, onUserCreated } from "@/lib/auth/session-hooks";
@@ -121,7 +120,6 @@ export const GET = async (request: NextRequest) => {
     }
 
     const accountId = membership.accountId;
-    const demoSeeded = membership.account.demoSeeded;
 
     // Seed defaults into the account — idempotent, skips anything that already exists
     const ops = [];
@@ -146,14 +144,6 @@ export const GET = async (request: NextRequest) => {
 
     if (ops.length > 0) {
       await db.$transaction(ops);
-    }
-
-    if (!demoSeeded) {
-      await seedDemoSecret(accountId);
-      await db.account.update({
-        where: { id: accountId },
-        data: { demoSeeded: true },
-      });
     }
 
     return NextResponse.json({
