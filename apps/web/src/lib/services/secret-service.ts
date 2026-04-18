@@ -26,10 +26,13 @@ const toMetadataColumn = (
     : Prisma.JsonNull;
 
 /** Canonical shape for the injectionConfig JSON column. `null` clears it. */
-type InjectionConfigInput = {
-  headerName: string;
-  valueFormat?: string;
-} | null | undefined;
+type InjectionConfigInput =
+  | {
+      headerName: string;
+      valueFormat?: string;
+    }
+  | null
+  | undefined;
 
 const toInjectionConfigColumn = (
   type: string,
@@ -106,7 +109,10 @@ export const createSecret = async (
   const encryptedValue = await cryptoService.encrypt(value);
   const preview = buildPreview(value);
   const pathPattern = input.pathPattern?.trim() || null;
-  const injectionConfig = toInjectionConfigColumn(input.type, input.injectionConfig);
+  const injectionConfig = toInjectionConfigColumn(
+    input.type,
+    input.injectionConfig,
+  );
 
   const metadataObj: Record<string, unknown> = {};
   if (input.type === "anthropic") {
@@ -202,7 +208,10 @@ export const updateSecret = async (
   }
 
   if (input.injectionConfig !== undefined && secret.type === "generic") {
-    data.injectionConfig = toInjectionConfigColumn(secret.type, input.injectionConfig);
+    data.injectionConfig = toInjectionConfigColumn(
+      secret.type,
+      input.injectionConfig,
+    );
   }
 
   if (input.metadata !== undefined) {
