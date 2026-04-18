@@ -8,6 +8,24 @@ const injectionConfigSchema = z
   .nullable()
   .optional();
 
+const envMappingSchema = z.object({
+  envName: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(/^[A-Z_][A-Z0-9_]*$/, "envName must match [A-Z_][A-Z0-9_]*"),
+  placeholder: z.string().min(1).max(1000),
+});
+
+/** Metadata accepted from clients. Server-owned keys (e.g. `authMode`) are written internally and not accepted here. */
+const clientMetadataSchema = z
+  .object({
+    envMappings: z.array(envMappingSchema).max(32).optional(),
+  })
+  .strict()
+  .nullable()
+  .optional();
+
 /** Validates a host pattern is a hostname, not a URL or path. */
 const hostPatternSchema = z
   .string()
@@ -31,6 +49,7 @@ export const createSecretSchema = z.object({
   hostPattern: hostPatternSchema,
   pathPattern: z.string().max(1000).optional(),
   injectionConfig: injectionConfigSchema,
+  metadata: clientMetadataSchema,
 });
 
 export type CreateSecretInput = z.infer<typeof createSecretSchema>;
@@ -42,6 +61,7 @@ export const updateSecretSchema = z
     hostPattern: hostPatternSchema.optional(),
     pathPattern: z.string().max(1000).nullable().optional(),
     injectionConfig: injectionConfigSchema,
+    metadata: clientMetadataSchema,
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field must be provided",
