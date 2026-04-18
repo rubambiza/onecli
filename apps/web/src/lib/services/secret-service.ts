@@ -14,6 +14,38 @@ const SECRET_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
+ * Prisma stores `null` as `Prisma.JsonNull`. Wraps a plain object in the
+ * appropriate shape, or returns `JsonNull` for an empty object so the column
+ * is cleared rather than set to `{}`.
+ */
+const toMetadataColumn = (
+  obj: Record<string, unknown>,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull =>
+  Object.keys(obj).length > 0
+    ? (obj as Prisma.InputJsonValue)
+    : Prisma.JsonNull;
+
+/** Canonical shape for the injectionConfig JSON column. `null` clears it. */
+type InjectionConfigInput =
+  | {
+      headerName: string;
+      valueFormat?: string;
+    }
+  | null
+  | undefined;
+
+const toInjectionConfigColumn = (
+  type: string,
+  cfg: InjectionConfigInput,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull => {
+  if (type !== "generic" || !cfg) return Prisma.JsonNull;
+  return {
+    headerName: cfg.headerName.trim(),
+    valueFormat: cfg.valueFormat?.trim() || "{value}",
+  } as Prisma.InputJsonValue;
+};
+
+/**
  * Build a masked preview of a plaintext value.
  * Shows first 4 and last 4 characters: "sk-ant-a--------xxxx"
  */
@@ -32,6 +64,7 @@ export const listSecrets = async (accountId: string) => {
       hostPattern: true,
       pathPattern: true,
       injectionConfig: true,
+      metadata: true,
       createdAt: true,
     },
     orderBy: { createdAt: "desc" },
@@ -76,20 +109,19 @@ export const createSecret = async (
   const encryptedValue = await cryptoService.encrypt(value);
   const preview = buildPreview(value);
   const pathPattern = input.pathPattern?.trim() || null;
-  const injectionConfig =
-    input.type === "generic" && input.injectionConfig
-      ? ({
-          headerName: input.injectionConfig.headerName.trim(),
-          valueFormat: input.injectionConfig.valueFormat?.trim() || "{value}",
-        } as Prisma.InputJsonValue)
-      : Prisma.JsonNull;
+  const injectionConfig = toInjectionConfigColumn(
+    input.type,
+    input.injectionConfig,
+  );
 
-  const metadata =
-    input.type === "anthropic"
-      ? ({
-          authMode: detectAnthropicAuthMode(value) ?? "api-key",
-        } as Prisma.InputJsonValue)
-      : Prisma.JsonNull;
+  const metadataObj: Record<string, unknown> = {};
+  if (input.type === "anthropic") {
+    metadataObj.authMode = detectAnthropicAuthMode(value) ?? "api-key";
+  }
+  if (input.metadata?.envMappings) {
+    metadataObj.envMappings = input.metadata.envMappings;
+  }
+  const metadata = toMetadataColumn(metadataObj);
 
   const secret = await db.secret.create({
     data: {
@@ -108,6 +140,7 @@ export const createSecret = async (
       type: true,
       hostPattern: true,
       pathPattern: true,
+      metadata: true,
       createdAt: true,
     },
   });
@@ -133,12 +166,16 @@ export const updateSecret = async (
 ) => {
   const secret = await db.secret.findFirst({
     where: { id: secretId, accountId },
-    select: { id: true, type: true },
+    select: { id: true, type: true, metadata: true },
   });
 
   if (!secret) throw new ServiceError("NOT_FOUND", "Secret not found");
 
   const data: Record<string, unknown> = {};
+  const mergedMetadata: Record<string, unknown> = {
+    ...((secret.metadata as Record<string, unknown> | null) ?? {}),
+  };
+  let metadataDirty = false;
 
   if (input.name !== undefined) {
     const name = input.name.trim();
@@ -154,9 +191,8 @@ export const updateSecret = async (
 
     // Re-detect auth mode when value changes for Anthropic secrets
     if (secret.type === "anthropic") {
-      data.metadata = {
-        authMode: detectAnthropicAuthMode(value) ?? "api-key",
-      } as Prisma.InputJsonValue;
+      mergedMetadata.authMode = detectAnthropicAuthMode(value) ?? "api-key";
+      metadataDirty = true;
     }
   }
 
@@ -172,12 +208,23 @@ export const updateSecret = async (
   }
 
   if (input.injectionConfig !== undefined && secret.type === "generic") {
-    data.injectionConfig = input.injectionConfig
-      ? ({
-          headerName: input.injectionConfig.headerName.trim(),
-          valueFormat: input.injectionConfig.valueFormat?.trim() || "{value}",
-        } as Prisma.InputJsonValue)
-      : Prisma.JsonNull;
+    data.injectionConfig = toInjectionConfigColumn(
+      secret.type,
+      input.injectionConfig,
+    );
+  }
+
+  if (input.metadata !== undefined) {
+    if (input.metadata === null) {
+      delete mergedMetadata.envMappings;
+    } else if (input.metadata.envMappings !== undefined) {
+      mergedMetadata.envMappings = input.metadata.envMappings;
+    }
+    metadataDirty = true;
+  }
+
+  if (metadataDirty) {
+    data.metadata = toMetadataColumn(mergedMetadata);
   }
 
   if (Object.keys(data).length === 0) {
