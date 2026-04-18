@@ -8,6 +8,7 @@ import { googleClassroom } from "./google-classroom";
 import { googleDocs } from "./google-docs";
 import { googleDrive } from "./google-drive";
 import { googleForms } from "./google-forms";
+import { googleHealth } from "./google-health";
 import { googleMeet } from "./google-meet";
 import { googlePhotos } from "./google-photos";
 import { googleSearchConsole } from "./google-search-console";
@@ -26,6 +27,7 @@ export const apps: AppDefinition[] = [
   googleDocs,
   googleDrive,
   googleForms,
+  googleHealth,
   googleMeet,
   googlePhotos,
   googleSearchConsole,
