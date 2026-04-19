@@ -15,6 +15,11 @@ export const spotify: AppDefinition = {
       "playlist-read-collaborative",
       "user-top-read",
       "user-read-recently-played",
+      "user-follow-read",
+      "user-read-playback-state",
+      "user-read-currently-playing",
+      "user-read-playback-position",
+      "user-personalized",
     ],
     permissions: [
       {
@@ -57,6 +62,37 @@ export const spotify: AppDefinition = {
         scope: "user-read-recently-played",
         name: "Listening history",
         description: "View your recently played tracks",
+        access: "read",
+      },
+      {
+        scope: "user-follow-read",
+        name: "Followed artists & users",
+        description: "View artists and users you follow",
+        access: "read",
+      },
+      {
+        scope: "user-read-playback-state",
+        name: "Playback state",
+        description: "Current player state, active device, and queue",
+        access: "read",
+      },
+      {
+        scope: "user-read-currently-playing",
+        name: "Currently playing",
+        description: "What you're listening to right now",
+        access: "read",
+      },
+      {
+        scope: "user-read-playback-position",
+        name: "Playback position",
+        description: "Resume positions for podcast episodes",
+        access: "read",
+      },
+      {
+        scope: "user-personalized",
+        name: "Personalized content",
+        description:
+          "Personalized recommendations and content for your account",
         access: "read",
       },
     ],
