@@ -17,6 +17,7 @@ import { googleSlides } from "./google-slides";
 import { googleTasks } from "./google-tasks";
 import { resend } from "./resend";
 import { spotify } from "./spotify";
+import { youtube } from "./youtube";
 
 export const apps: AppDefinition[] = [
   github,
@@ -37,6 +38,7 @@ export const apps: AppDefinition[] = [
   googleTasks,
   resend,
   spotify,
+  youtube,
 ];
 
 export const getApp = (id: string): AppDefinition | undefined =>
