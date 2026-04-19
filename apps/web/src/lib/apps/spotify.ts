@@ -19,7 +19,6 @@ export const spotify: AppDefinition = {
       "user-read-playback-state",
       "user-read-currently-playing",
       "user-read-playback-position",
-      "user-personalized",
     ],
     permissions: [
       {
@@ -86,13 +85,6 @@ export const spotify: AppDefinition = {
         scope: "user-read-playback-position",
         name: "Playback position",
         description: "Resume positions for podcast episodes",
-        access: "read",
-      },
-      {
-        scope: "user-personalized",
-        name: "Personalized content",
-        description:
-          "Personalized recommendations and content for your account",
         access: "read",
       },
     ],
