@@ -258,6 +258,24 @@ static APP_PROVIDERS: &[AppProvider] = &[
         refresh: Some(&GOOGLE_REFRESH),
     },
     AppProvider {
+        provider: "youtube",
+        display_name: "YouTube",
+        host_rules: &[
+            HostRule {
+                host: "youtube.googleapis.com",
+                path_prefix: None,
+                strategy: AuthStrategy::Bearer,
+            },
+            // Legacy endpoint — some clients still use www.googleapis.com/youtube/
+            HostRule {
+                host: "www.googleapis.com",
+                path_prefix: Some("/youtube/"),
+                strategy: AuthStrategy::Bearer,
+            },
+        ],
+        refresh: Some(&GOOGLE_REFRESH),
+    },
+    AppProvider {
         provider: "google-health",
         display_name: "Google Health",
         host_rules: &[HostRule {
@@ -712,6 +730,10 @@ mod tests {
             providers_for_host("health.googleapis.com"),
             vec!["google-health"]
         );
+        assert_eq!(
+            providers_for_host("youtube.googleapis.com"),
+            vec!["youtube"]
+        );
     }
 
     #[test]
@@ -729,6 +751,7 @@ mod tests {
             ("google-meet", "meet.googleapis.com"),
             ("google-photos", "photoslibrary.googleapis.com"),
             ("google-health", "health.googleapis.com"),
+            ("youtube", "youtube.googleapis.com"),
         ];
         for (provider, host) in &hosts {
             let injections = build_app_injections(provider, host, "ya29.test");
@@ -856,6 +879,9 @@ mod tests {
 
         let result = provider_for_host_and_path("www.googleapis.com", "/drive/v3/files");
         assert_eq!(result, Some(("google-drive", "Google Drive")));
+
+        let result = provider_for_host_and_path("www.googleapis.com", "/youtube/v3/playlists");
+        assert_eq!(result, Some(("youtube", "YouTube")));
     }
 
     #[test]
