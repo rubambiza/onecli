@@ -29,6 +29,17 @@ struct HostRule {
     strategy: AuthStrategy,
 }
 
+/// How to send client credentials when refreshing an access token (RFC 6749 §2.3.1).
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ClientAuthMethod {
+    /// `client_id` and `client_secret` in the form body (`client_secret_post`).
+    /// Used by Google.
+    Body,
+    /// `Authorization: Basic base64(client_id:client_secret)` (`client_secret_basic`).
+    /// Used by Spotify.
+    Basic,
+}
+
 /// Configuration for refreshing expired OAuth tokens.
 pub(crate) struct RefreshConfig {
     /// Token endpoint URL (e.g., `https://oauth2.googleapis.com/token`).
@@ -37,6 +48,8 @@ pub(crate) struct RefreshConfig {
     pub client_id_env: &'static str,
     /// Env var for the OAuth client secret.
     pub client_secret_env: &'static str,
+    /// How to transmit the client credentials to the token endpoint.
+    pub client_auth: ClientAuthMethod,
 }
 
 /// An app provider definition with its host rules.
@@ -52,6 +65,16 @@ static GOOGLE_REFRESH: RefreshConfig = RefreshConfig {
     token_url: "https://oauth2.googleapis.com/token",
     client_id_env: "GOOGLE_CLIENT_ID",
     client_secret_env: "GOOGLE_CLIENT_SECRET",
+    client_auth: ClientAuthMethod::Body,
+};
+
+/// Refresh config for the Spotify Web API.
+/// Spotify's `/api/token` endpoint requires HTTP Basic auth for client credentials.
+static SPOTIFY_REFRESH: RefreshConfig = RefreshConfig {
+    token_url: "https://accounts.spotify.com/api/token",
+    client_id_env: "SPOTIFY_CLIENT_ID",
+    client_secret_env: "SPOTIFY_CLIENT_SECRET",
+    client_auth: ClientAuthMethod::Basic,
 };
 
 // ── Provider registry ──────────────────────────────────────────────────
@@ -254,6 +277,16 @@ static APP_PROVIDERS: &[AppProvider] = &[
         }],
         refresh: None,
     },
+    AppProvider {
+        provider: "spotify",
+        display_name: "Spotify",
+        host_rules: &[HostRule {
+            host: "api.spotify.com",
+            path_prefix: None,
+            strategy: AuthStrategy::Bearer,
+        }],
+        refresh: Some(&SPOTIFY_REFRESH),
+    },
 ];
 
 // ── Public API ─────────────────────────────────────────────────────────
@@ -417,14 +450,21 @@ pub(crate) async fn refresh_access_token(
             .map_err(|_| anyhow::anyhow!("{} env var not set", config.client_secret_env))?,
     };
 
-    let resp = reqwest::Client::new()
-        .post(config.token_url)
-        .form(&[
+    let req = reqwest::Client::new().post(config.token_url);
+    let req = match config.client_auth {
+        ClientAuthMethod::Body => req.form(&[
             ("client_id", client_id.as_str()),
             ("client_secret", client_secret.as_str()),
             ("refresh_token", refresh_token),
             ("grant_type", "refresh_token"),
-        ])
+        ]),
+        ClientAuthMethod::Basic => req.basic_auth(&client_id, Some(&client_secret)).form(&[
+            ("refresh_token", refresh_token),
+            ("grant_type", "refresh_token"),
+        ]),
+    };
+
+    let resp = req
         .send()
         .await
         .map_err(|e| anyhow::anyhow!("refresh request failed: {e}"))?;
@@ -726,6 +766,39 @@ mod tests {
                 value: "Bearer re_test123".to_string(),
             }
         );
+    }
+
+    // ── Spotify ───────────────────────────────────────────────────────
+
+    #[test]
+    fn providers_for_spotify_host() {
+        assert_eq!(providers_for_host("api.spotify.com"), vec!["spotify"]);
+    }
+
+    #[test]
+    fn spotify_api_uses_bearer() {
+        let injections = build_app_injections("spotify", "api.spotify.com", "BQB_test");
+        assert_eq!(injections.len(), 1);
+        assert_eq!(
+            injections[0],
+            Injection::SetHeader {
+                name: "authorization".to_string(),
+                value: "Bearer BQB_test".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn spotify_refresh_uses_basic_auth() {
+        let cfg = refresh_config("spotify").expect("spotify has refresh config");
+        assert!(matches!(cfg.client_auth, ClientAuthMethod::Basic));
+        assert_eq!(cfg.token_url, "https://accounts.spotify.com/api/token");
+    }
+
+    #[test]
+    fn google_refresh_uses_body_auth() {
+        let cfg = refresh_config("google-drive").expect("google-drive has refresh config");
+        assert!(matches!(cfg.client_auth, ClientAuthMethod::Body));
     }
 
     // ── Edge cases ───────────────────────────────────────────────────
