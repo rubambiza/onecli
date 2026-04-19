@@ -235,6 +235,16 @@ static APP_PROVIDERS: &[AppProvider] = &[
         refresh: Some(&GOOGLE_REFRESH),
     },
     AppProvider {
+        provider: "google-health",
+        display_name: "Google Health",
+        host_rules: &[HostRule {
+            host: "health.googleapis.com",
+            path_prefix: None,
+            strategy: AuthStrategy::Bearer,
+        }],
+        refresh: Some(&GOOGLE_REFRESH),
+    },
+    AppProvider {
         provider: "resend",
         display_name: "Resend",
         host_rules: &[HostRule {
@@ -658,6 +668,10 @@ mod tests {
             providers_for_host("photoslibrary.googleapis.com"),
             vec!["google-photos"]
         );
+        assert_eq!(
+            providers_for_host("health.googleapis.com"),
+            vec!["google-health"]
+        );
     }
 
     #[test]
@@ -674,6 +688,7 @@ mod tests {
             ("google-search-console", "searchconsole.googleapis.com"),
             ("google-meet", "meet.googleapis.com"),
             ("google-photos", "photoslibrary.googleapis.com"),
+            ("google-health", "health.googleapis.com"),
         ];
         for (provider, host) in &hosts {
             let injections = build_app_injections(provider, host, "ya29.test");
