@@ -1,5 +1,6 @@
 import type { AppDefinition } from "./types";
 import { github } from "./github";
+import { githubEnterprise } from "./github-enterprise";
 import { gmail } from "./gmail";
 import { googleAdmin } from "./google-admin";
 import { googleAnalytics } from "./google-analytics";
@@ -21,6 +22,7 @@ import { youtube } from "./youtube";
 
 export const apps: AppDefinition[] = [
   github,
+  githubEnterprise,
   gmail,
   googleAdmin,
   googleAnalytics,
