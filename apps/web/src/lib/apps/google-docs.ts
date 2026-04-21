@@ -4,6 +4,7 @@ import {
   exchangeGoogleCode,
   googleConfigFields,
   googleEnvDefaults,
+  googleWorkspaceEnvMappings,
 } from "./google-oauth";
 
 export const googleDocs: AppDefinition = {
@@ -54,4 +55,5 @@ export const googleDocs: AppDefinition = {
     fields: googleConfigFields,
     envDefaults: googleEnvDefaults,
   },
+  envMappings: googleWorkspaceEnvMappings,
 };

@@ -3,6 +3,7 @@ import {
   buildGoogleAuthUrl,
   exchangeGoogleCode,
   googleConfigFields,
+  googleWorkspaceEnvMappings,
 } from "./google-oauth";
 
 export const googleMeet: AppDefinition = {
@@ -45,4 +46,5 @@ export const googleMeet: AppDefinition = {
   configurable: {
     fields: googleConfigFields,
   },
+  envMappings: googleWorkspaceEnvMappings,
 };

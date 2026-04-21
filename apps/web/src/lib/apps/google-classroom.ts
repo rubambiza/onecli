@@ -3,6 +3,7 @@ import {
   buildGoogleAuthUrl,
   exchangeGoogleCode,
   googleConfigFields,
+  googleWorkspaceEnvMappings,
 } from "./google-oauth";
 
 export const googleClassroom: AppDefinition = {
@@ -45,4 +46,5 @@ export const googleClassroom: AppDefinition = {
   configurable: {
     fields: googleConfigFields,
   },
+  envMappings: googleWorkspaceEnvMappings,
 };

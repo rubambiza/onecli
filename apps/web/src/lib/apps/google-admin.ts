@@ -3,6 +3,7 @@ import {
   buildGoogleAuthUrl,
   exchangeGoogleCode,
   googleConfigFields,
+  googleWorkspaceEnvMappings,
 } from "./google-oauth";
 
 export const googleAdmin: AppDefinition = {
@@ -45,4 +46,5 @@ export const googleAdmin: AppDefinition = {
   configurable: {
     fields: googleConfigFields,
   },
+  envMappings: googleWorkspaceEnvMappings,
 };

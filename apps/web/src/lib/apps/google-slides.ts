@@ -4,6 +4,7 @@ import {
   exchangeGoogleCode,
   googleConfigFields,
   googleEnvDefaults,
+  googleWorkspaceEnvMappings,
 } from "./google-oauth";
 
 export const googleSlides: AppDefinition = {
@@ -55,4 +56,5 @@ export const googleSlides: AppDefinition = {
     fields: googleConfigFields,
     envDefaults: googleEnvDefaults,
   },
+  envMappings: googleWorkspaceEnvMappings,
 };

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { envMappingSchema } from "@/lib/env-mapping";
 
 const injectionConfigSchema = z
   .object({
@@ -7,15 +8,6 @@ const injectionConfigSchema = z
   })
   .nullable()
   .optional();
-
-const envMappingSchema = z.object({
-  envName: z
-    .string()
-    .min(1)
-    .max(255)
-    .regex(/^[A-Z_][A-Z0-9_]*$/, "envName must match [A-Z_][A-Z0-9_]*"),
-  placeholder: z.string().min(1).max(1000),
-});
 
 /** Metadata accepted from clients. Server-owned keys (e.g. `authMode`) are written internally and not accepted here. */
 const clientMetadataSchema = z

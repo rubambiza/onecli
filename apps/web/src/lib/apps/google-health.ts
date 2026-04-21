@@ -4,6 +4,7 @@ import {
   exchangeGoogleCode,
   googleConfigFields,
   googleEnvDefaults,
+  googleWorkspaceEnvMappings,
 } from "./google-oauth";
 
 export const googleHealth: AppDefinition = {
@@ -83,4 +84,5 @@ export const googleHealth: AppDefinition = {
     fields: googleConfigFields,
     envDefaults: googleEnvDefaults,
   },
+  envMappings: googleWorkspaceEnvMappings,
 };

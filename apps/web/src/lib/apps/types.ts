@@ -1,3 +1,5 @@
+import type { EnvMapping } from "@/lib/env-mapping";
+
 export interface OAuthBuildAuthUrlParams {
   clientId: string;
   redirectUri: string;
@@ -79,4 +81,9 @@ export interface AppDefinition {
     /** Maps field names to env var names for platform defaults. Omit if no defaults exist. */
     envDefaults?: Record<string, string>;
   };
+  /**
+   * Env vars a consumer should inject into any agent granted this connection.
+   * Omitted for apps with no known CLI integration.
+   */
+  envMappings?: EnvMapping[];
 }

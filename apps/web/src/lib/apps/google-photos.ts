@@ -3,6 +3,7 @@ import {
   buildGoogleAuthUrl,
   exchangeGoogleCode,
   googleConfigFields,
+  googleWorkspaceEnvMappings,
 } from "./google-oauth";
 
 export const googlePhotos: AppDefinition = {
@@ -45,4 +46,5 @@ export const googlePhotos: AppDefinition = {
   configurable: {
     fields: googleConfigFields,
   },
+  envMappings: googleWorkspaceEnvMappings,
 };

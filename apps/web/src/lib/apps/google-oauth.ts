@@ -1,3 +1,4 @@
+import type { EnvMapping } from "@/lib/env-mapping";
 import type {
   OAuthBuildAuthUrlParams,
   OAuthExchangeCodeParams,
@@ -126,3 +127,15 @@ export const googleEnvDefaults = {
   clientId: "GOOGLE_CLIENT_ID",
   clientSecret: "GOOGLE_CLIENT_SECRET",
 } as const;
+
+/**
+ * Shared envMappings for every Google Workspace app that uses this OAuth
+ * flow. The `gws` CLI reads one bearer token regardless of which Google API
+ * it calls (Drive, Gmail, Calendar, Sheets, Docs, Slides, Forms, Tasks,
+ * Meet, Classroom, Admin, Photos, Analytics, Search Console, Health).
+ * The gateway swaps the sentinel for the real OAuth token on outbound
+ * `*.googleapis.com` requests.
+ */
+export const googleWorkspaceEnvMappings: EnvMapping[] = [
+  { envName: "GOOGLE_WORKSPACE_CLI_TOKEN", placeholder: "humr:sentinel" },
+];
