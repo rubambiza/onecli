@@ -1,5 +1,9 @@
 import type { AppDefinition } from "./types";
-import { buildGithubAuthUrl, exchangeGithubCode } from "./github-oauth";
+import {
+  buildGithubAuthUrl,
+  exchangeGithubCode,
+  githubEnvMappings,
+} from "./github-oauth";
 
 const cfgFromConfig = (config: Record<string, string>) => {
   const baseUrl = config.baseUrl;
@@ -115,4 +119,5 @@ export const githubEnterprise: AppDefinition = {
       clientSecret: "GITHUB_ENTERPRISE_CLIENT_SECRET",
     },
   },
+  envMappings: githubEnvMappings,
 };

@@ -83,7 +83,10 @@ export interface AppDefinition {
   };
   /**
    * Env vars a consumer should inject into any agent granted this connection.
-   * Omitted for apps with no known CLI integration.
+   * Required — every app must declare the env contract its CLI/SDK consumers
+   * expect so agents can call the provider without per-provider wiring. Apps
+   * in the same OAuth family can share an exported mapping (see
+   * `googleWorkspaceEnvMappings`, `githubEnvMappings`).
    */
-  envMappings?: EnvMapping[];
+  envMappings: EnvMapping[];
 }

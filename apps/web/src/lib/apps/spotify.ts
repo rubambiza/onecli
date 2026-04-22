@@ -1,4 +1,9 @@
+import type { EnvMapping } from "@/lib/env-mapping";
 import type { AppDefinition } from "./types";
+
+const spotifyEnvMappings: EnvMapping[] = [
+  { envName: "SPOTIFY_ACCESS_TOKEN", placeholder: "humr:sentinel" },
+];
 
 export const spotify: AppDefinition = {
   id: "spotify",
@@ -193,4 +198,5 @@ export const spotify: AppDefinition = {
       clientSecret: "SPOTIFY_CLIENT_SECRET",
     },
   },
+  envMappings: spotifyEnvMappings,
 };

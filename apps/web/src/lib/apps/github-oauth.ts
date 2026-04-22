@@ -1,3 +1,4 @@
+import type { EnvMapping } from "@/lib/env-mapping";
 import type {
   OAuthBuildAuthUrlParams,
   OAuthExchangeCodeParams,
@@ -8,6 +9,17 @@ export interface GithubOAuthConfig {
   baseUrl: string;
   apiBase: string;
 }
+
+/**
+ * Env var contract for GitHub OAuth connections (github.com + Enterprise).
+ * `gh` CLI, hub, and octokit-based tools read `GH_TOKEN` by default; the
+ * gateway swaps the sentinel for the real OAuth access token on outbound
+ * requests to `api.github.com`, `github.com`, and `raw.githubusercontent.com`
+ * (see gateway `apps.rs`).
+ */
+export const githubEnvMappings: EnvMapping[] = [
+  { envName: "GH_TOKEN", placeholder: "humr:sentinel" },
+];
 
 export const buildGithubAuthUrl = (
   cfg: GithubOAuthConfig,

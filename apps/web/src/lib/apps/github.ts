@@ -2,6 +2,7 @@ import type { AppDefinition } from "./types";
 import {
   buildGithubAuthUrl,
   exchangeGithubCode,
+  githubEnvMappings,
   type GithubOAuthConfig,
 } from "./github-oauth";
 
@@ -94,4 +95,5 @@ export const github: AppDefinition = {
       clientSecret: "GITHUB_CLIENT_SECRET",
     },
   },
+  envMappings: githubEnvMappings,
 };

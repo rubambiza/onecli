@@ -1,4 +1,9 @@
+import type { EnvMapping } from "@/lib/env-mapping";
 import type { AppDefinition } from "./types";
+
+const resendEnvMappings: EnvMapping[] = [
+  { envName: "RESEND_API_KEY", placeholder: "humr:sentinel" },
+];
 
 export const resend: AppDefinition = {
   id: "resend",
@@ -18,4 +23,5 @@ export const resend: AppDefinition = {
     ],
   },
   available: true,
+  envMappings: resendEnvMappings,
 };
