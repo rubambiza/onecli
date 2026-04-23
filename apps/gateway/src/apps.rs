@@ -351,25 +351,23 @@ fn extract_host_from_base_url(metadata: &serde_json::Value) -> Option<&str> {
     (!host.is_empty()).then_some(host)
 }
 
-static DYNAMIC_APP_PROVIDERS: &[DynamicAppProvider] = &[
-    DynamicAppProvider {
-        provider: "github-enterprise",
-        extract_host: extract_host_from_base_url,
-        // Order matters: the default rule (`*`, for git HTTPS over Basic auth)
-        // is applied first, then the REST API rule (`/api/v3/*`, Bearer)
-        // overrides it for API paths. Last `SetHeader` wins in `apply_injections`.
-        rules: &[
-            DynamicPathRule {
-                path_prefix: None,
-                strategy: AuthStrategy::BasicXAccessToken,
-            },
-            DynamicPathRule {
-                path_prefix: Some("/api/v3/"),
-                strategy: AuthStrategy::Bearer,
-            },
-        ],
-    },
-];
+static DYNAMIC_APP_PROVIDERS: &[DynamicAppProvider] = &[DynamicAppProvider {
+    provider: "github-enterprise",
+    extract_host: extract_host_from_base_url,
+    // Order matters: the default rule (`*`, for git HTTPS over Basic auth)
+    // is applied first, then the REST API rule (`/api/v3/*`, Bearer)
+    // overrides it for API paths. Last `SetHeader` wins in `apply_injections`.
+    rules: &[
+        DynamicPathRule {
+            path_prefix: None,
+            strategy: AuthStrategy::BasicXAccessToken,
+        },
+        DynamicPathRule {
+            path_prefix: Some("/api/v3/"),
+            strategy: AuthStrategy::Bearer,
+        },
+    ],
+}];
 
 // ── Public API ─────────────────────────────────────────────────────────
 
@@ -483,7 +481,10 @@ pub(crate) fn connection_matches_host(
             .iter()
             .any(|r| r.host.eq_ignore_ascii_case(hostname));
     }
-    if let Some(app) = DYNAMIC_APP_PROVIDERS.iter().find(|p| p.provider == provider) {
+    if let Some(app) = DYNAMIC_APP_PROVIDERS
+        .iter()
+        .find(|p| p.provider == provider)
+    {
         let Some(metadata) = metadata else {
             return false;
         };
@@ -529,7 +530,10 @@ pub(crate) fn build_app_injection_rules(
     hostname: &str,
     token: &str,
 ) -> Vec<(String, Vec<Injection>)> {
-    if let Some(app) = DYNAMIC_APP_PROVIDERS.iter().find(|p| p.provider == provider) {
+    if let Some(app) = DYNAMIC_APP_PROVIDERS
+        .iter()
+        .find(|p| p.provider == provider)
+    {
         return app
             .rules
             .iter()

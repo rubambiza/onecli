@@ -396,9 +396,9 @@ impl PolicyEngine {
 
         // Check 2: account has app connections matching this host.
         match db::find_app_connections_by_account(&self.pool, &agent.account_id).await {
-            Ok(connections) => connections.iter().any(|c| {
-                apps::connection_matches_host(&c.provider, c.metadata.as_ref(), hostname)
-            }),
+            Ok(connections) => connections
+                .iter()
+                .any(|c| apps::connection_matches_host(&c.provider, c.metadata.as_ref(), hostname)),
             Err(e) => {
                 tracing::warn!(error = %e, "has_account_credentials: app connections query failed");
                 false
