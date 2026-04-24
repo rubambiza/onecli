@@ -60,6 +60,32 @@ struct AppProvider {
     refresh: Option<&'static RefreshConfig>,
 }
 
+/// A path-scoped injection rule for a dynamic-host provider.
+/// Unlike `HostRule`, the host is resolved per-connection from metadata.
+struct DynamicPathRule {
+    path_prefix: Option<&'static str>,
+    strategy: AuthStrategy,
+}
+
+/// A provider whose host is resolved per-connection from the connection's
+/// metadata (e.g., GitHub Enterprise Server, where every account has its
+/// own enterprise URL).
+///
+/// The rules are applied in registry order. Less-specific patterns (e.g., `*`)
+/// should come first; more-specific path prefixes last. `apply_injections`
+/// in `inject.rs` runs rules in order and later `SetHeader` wins, so a
+/// `/api/v3/*` rule placed after a `*` rule overrides on API paths.
+struct DynamicAppProvider {
+    provider: &'static str,
+    /// Extracts the connection's host (borrowed from metadata) from its
+    /// decoded metadata JSON. Most providers store `metadata.baseUrl` and
+    /// can reuse `extract_host_from_base_url`. Returns `None` when metadata
+    /// is missing or malformed. Case normalization is the comparison
+    /// layer's responsibility — see `connection_matches_host`.
+    extract_host: fn(&serde_json::Value) -> Option<&str>,
+    rules: &'static [DynamicPathRule],
+}
+
 /// Shared refresh config for all Google OAuth APIs.
 static GOOGLE_REFRESH: RefreshConfig = RefreshConfig {
     token_url: "https://oauth2.googleapis.com/token",
@@ -307,6 +333,42 @@ static APP_PROVIDERS: &[AppProvider] = &[
     },
 ];
 
+// ── Dynamic-host provider registry ─────────────────────────────────────
+//
+// Providers whose host is determined per-connection rather than baked into
+// the registry. Matching requires the connection's `metadata` JSON and is
+// done via `connection_matches_host`.
+
+/// Extract the host from `metadata.baseUrl`, the shared convention for
+/// dynamic-host providers. The web-side validator
+/// (`apps/web/src/lib/apps/validate-base-url.ts`) normalizes every stored
+/// baseUrl to `https://host[:port]` — no path, query, fragment, or
+/// userinfo — so the Rust side only needs to strip the scheme and port.
+fn extract_host_from_base_url(metadata: &serde_json::Value) -> Option<&str> {
+    let base_url = metadata.get("baseUrl")?.as_str()?;
+    let host_port = base_url.strip_prefix("https://")?;
+    let host = host_port.split(':').next()?;
+    (!host.is_empty()).then_some(host)
+}
+
+static DYNAMIC_APP_PROVIDERS: &[DynamicAppProvider] = &[DynamicAppProvider {
+    provider: "github-enterprise",
+    extract_host: extract_host_from_base_url,
+    // Order matters: the default rule (`*`, for git HTTPS over Basic auth)
+    // is applied first, then the REST API rule (`/api/v3/*`, Bearer)
+    // overrides it for API paths. Last `SetHeader` wins in `apply_injections`.
+    rules: &[
+        DynamicPathRule {
+            path_prefix: None,
+            strategy: AuthStrategy::BasicXAccessToken,
+        },
+        DynamicPathRule {
+            path_prefix: Some("/api/v3/"),
+            strategy: AuthStrategy::Bearer,
+        },
+    ],
+}];
+
 // ── Public API ─────────────────────────────────────────────────────────
 
 /// Given a hostname, return the first matching provider's (id, display_name).
@@ -347,7 +409,11 @@ pub(crate) fn provider_for_host_and_path(
 /// Given a hostname, return all provider names that have at least one host rule
 /// matching it. Multiple providers can share the same host with different path
 /// prefixes (e.g., Gmail on `/gmail/` and Calendar on `/calendar/`).
-pub(crate) fn providers_for_host(hostname: &str) -> Vec<&'static str> {
+///
+/// Runtime matching lives in `connection_matches_host`; this helper exists
+/// purely as registry introspection for the test suite.
+#[cfg(test)]
+fn providers_for_host(hostname: &str) -> Vec<&'static str> {
     let mut providers = Vec::new();
     for provider in APP_PROVIDERS {
         for rule in provider.host_rules {
@@ -398,15 +464,83 @@ fn build_app_injections(provider: &str, hostname: &str, token: &str) -> Vec<Inje
     }
 }
 
+/// Check whether an app connection matches the request hostname.
+///
+/// Works for both static providers (matched against the registry's
+/// `host_rules`) and dynamic providers like GitHub Enterprise (hostname
+/// extracted from the connection's `metadata`). Callers don't need to
+/// branch on the provider type.
+pub(crate) fn connection_matches_host(
+    provider: &str,
+    metadata: Option<&serde_json::Value>,
+    hostname: &str,
+) -> bool {
+    if let Some(app) = APP_PROVIDERS.iter().find(|p| p.provider == provider) {
+        return app
+            .host_rules
+            .iter()
+            .any(|r| r.host.eq_ignore_ascii_case(hostname));
+    }
+    if let Some(app) = DYNAMIC_APP_PROVIDERS
+        .iter()
+        .find(|p| p.provider == provider)
+    {
+        let Some(metadata) = metadata else {
+            return false;
+        };
+        let Some(connection_host) = (app.extract_host)(metadata) else {
+            return false;
+        };
+        return connection_host.eq_ignore_ascii_case(hostname);
+    }
+    false
+}
+
+/// Build an injection pair for a single path+strategy combination.
+fn build_injection_rule(
+    path_prefix: Option<&str>,
+    strategy: AuthStrategy,
+    token: &str,
+) -> (String, Vec<Injection>) {
+    let pattern = path_prefix.map_or_else(|| "*".to_string(), |prefix| format!("{prefix}*"));
+    let injections = match strategy {
+        AuthStrategy::Bearer => vec![Injection::SetHeader {
+            name: "authorization".to_string(),
+            value: format!("Bearer {token}"),
+        }],
+        AuthStrategy::BasicXAccessToken => {
+            let b64 = base64::engine::general_purpose::STANDARD;
+            let encoded = b64.encode(format!("x-access-token:{token}"));
+            vec![Injection::SetHeader {
+                name: "authorization".to_string(),
+                value: format!("Basic {encoded}"),
+            }]
+        }
+    };
+    (pattern, injections)
+}
+
 /// Build injection rules for all matching host rules of a provider on a given host.
 /// Returns one `(path_pattern, injections)` pair per matching rule. This handles
 /// providers with multiple rules on the same host (e.g., Google Drive has `/drive/`
-/// and `/upload/drive/` on `www.googleapis.com`).
+/// and `/upload/drive/` on `www.googleapis.com`), and dynamic-host providers
+/// whose rules are host-agnostic and apply to the caller-supplied hostname.
 pub(crate) fn build_app_injection_rules(
     provider: &str,
     hostname: &str,
     token: &str,
 ) -> Vec<(String, Vec<Injection>)> {
+    if let Some(app) = DYNAMIC_APP_PROVIDERS
+        .iter()
+        .find(|p| p.provider == provider)
+    {
+        return app
+            .rules
+            .iter()
+            .map(|rule| build_injection_rule(rule.path_prefix, rule.strategy, token))
+            .collect();
+    }
+
     let Some(app) = APP_PROVIDERS.iter().find(|p| p.provider == provider) else {
         return vec![];
     };
@@ -414,26 +548,7 @@ pub(crate) fn build_app_injection_rules(
     app.host_rules
         .iter()
         .filter(|r| r.host == hostname)
-        .map(|rule| {
-            let pattern = rule
-                .path_prefix
-                .map_or_else(|| "*".to_string(), |prefix| format!("{prefix}*"));
-            let injections = match rule.strategy {
-                AuthStrategy::Bearer => vec![Injection::SetHeader {
-                    name: "authorization".to_string(),
-                    value: format!("Bearer {token}"),
-                }],
-                AuthStrategy::BasicXAccessToken => {
-                    let b64 = base64::engine::general_purpose::STANDARD;
-                    let encoded = b64.encode(format!("x-access-token:{token}"));
-                    vec![Injection::SetHeader {
-                        name: "authorization".to_string(),
-                        value: format!("Basic {encoded}"),
-                    }]
-                }
-            };
-            (pattern, injections)
-        })
+        .map(|rule| build_injection_rule(rule.path_prefix, rule.strategy, token))
         .collect()
 }
 
@@ -933,5 +1048,119 @@ mod tests {
                 "host {host} mixes path-prefix and catch-all rules — this causes ambiguous injection"
             );
         }
+    }
+
+    // ── Dynamic-host providers (GitHub Enterprise) ────────────────────────
+
+    #[test]
+    fn extract_host_from_base_url_strips_port() {
+        let md = serde_json::json!({ "baseUrl": "https://ghe.example.com:8443" });
+        assert_eq!(extract_host_from_base_url(&md), Some("ghe.example.com"));
+    }
+
+    #[test]
+    fn extract_host_from_base_url_missing_or_invalid_returns_none() {
+        assert_eq!(extract_host_from_base_url(&serde_json::json!({})), None);
+        assert_eq!(
+            extract_host_from_base_url(&serde_json::json!({ "baseUrl": 42 })),
+            None
+        );
+        // Non-https schemes cannot be stored by the web validator, but the
+        // Rust side still refuses them defensively.
+        assert_eq!(
+            extract_host_from_base_url(&serde_json::json!({ "baseUrl": "http://bad" })),
+            None
+        );
+    }
+
+    #[test]
+    fn connection_matches_host_ghe_different_host_returns_false() {
+        let md = serde_json::json!({ "baseUrl": "https://ghe.example.com" });
+        assert!(!connection_matches_host(
+            "github-enterprise",
+            Some(&md),
+            "github.com"
+        ));
+        assert!(!connection_matches_host(
+            "github-enterprise",
+            Some(&md),
+            "other.example.com"
+        ));
+    }
+
+    #[test]
+    fn connection_matches_host_ghe_no_metadata_returns_false() {
+        assert!(!connection_matches_host(
+            "github-enterprise",
+            None,
+            "ghe.example.com"
+        ));
+    }
+
+    #[test]
+    fn connection_matches_host_static_provider_matches_registered_hosts() {
+        // Static providers match on their registry host_rules; metadata is
+        // ignored. The same `github` connection covers git, REST, and raw hosts.
+        assert!(connection_matches_host("github", None, "github.com"));
+        assert!(connection_matches_host("github", None, "api.github.com"));
+        assert!(connection_matches_host(
+            "github",
+            None,
+            "raw.githubusercontent.com"
+        ));
+    }
+
+    #[test]
+    fn connection_matches_host_is_case_insensitive_for_both_branches() {
+        // DNS names are case-insensitive (RFC 1035 §2.3.3), so matching must
+        // ignore case regardless of which branch handles the provider.
+        // Static:
+        assert!(connection_matches_host("github", None, "GitHub.com"));
+        // Dynamic: baseUrl uppercase, hostname lowercase.
+        let md = serde_json::json!({ "baseUrl": "https://GHE.Example.com" });
+        assert!(connection_matches_host(
+            "github-enterprise",
+            Some(&md),
+            "ghe.example.com"
+        ));
+    }
+
+    #[test]
+    fn connection_matches_host_static_provider_rejects_unknown_host() {
+        assert!(!connection_matches_host("github", None, "ghe.example.com"));
+        assert!(!connection_matches_host("github", None, "example.com"));
+    }
+
+    #[test]
+    fn build_injection_rules_ghe_emits_git_and_api_in_order() {
+        // Two rules, catch-all first (Basic for git) then /api/v3/* (Bearer).
+        // Order matters: when both match a path, `apply_injections` in
+        // inject.rs runs them in order and the last `SetHeader` wins.
+        let rules = build_app_injection_rules("github-enterprise", "ghe.example.com", "tok_abc");
+        assert_eq!(rules.len(), 2);
+
+        let (pattern0, injections0) = &rules[0];
+        assert_eq!(pattern0, "*");
+        match &injections0[0] {
+            Injection::SetHeader { name, value } => {
+                assert_eq!(name, "authorization");
+                assert!(value.starts_with("Basic "));
+                let b64 = base64::engine::general_purpose::STANDARD;
+                let encoded = &value["Basic ".len()..];
+                let decoded = String::from_utf8(b64.decode(encoded).unwrap()).unwrap();
+                assert_eq!(decoded, "x-access-token:tok_abc");
+            }
+            _ => panic!("expected SetHeader"),
+        }
+
+        let (pattern1, injections1) = &rules[1];
+        assert_eq!(pattern1, "/api/v3/*");
+        assert_eq!(
+            injections1[0],
+            Injection::SetHeader {
+                name: "authorization".to_string(),
+                value: "Bearer tok_abc".to_string(),
+            }
+        );
     }
 }

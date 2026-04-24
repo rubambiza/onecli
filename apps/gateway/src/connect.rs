@@ -218,13 +218,6 @@ impl PolicyEngine {
         agent: &db::AgentRow,
         hostname: &str,
     ) -> Result<Vec<db::AppConnectionRow>, ConnectError> {
-        let providers = apps::providers_for_host(hostname);
-        if providers.is_empty() {
-            debug!(host = %hostname, "app_connections: no provider for host");
-            return Ok(vec![]);
-        }
-        debug!(host = %hostname, providers = ?providers, "app_connections: matched providers");
-
         let connections = if agent.secret_mode == SECRET_MODE_SELECTIVE {
             db::find_app_connections_by_agent(&self.pool, &agent.id).await
         } else {
@@ -234,8 +227,13 @@ impl PolicyEngine {
 
         let matching: Vec<db::AppConnectionRow> = connections
             .into_iter()
-            .filter(|c| providers.contains(&c.provider.as_str()))
+            .filter(|c| apps::connection_matches_host(&c.provider, c.metadata.as_ref(), hostname))
             .collect();
+
+        if matching.is_empty() {
+            debug!(host = %hostname, "app_connections: no matching connection for host");
+            return Ok(vec![]);
+        }
 
         debug!(host = %hostname, count = matching.len(), "app_connections: deferred connections");
         Ok(matching)
@@ -396,15 +394,11 @@ impl PolicyEngine {
             }
         }
 
-        // Check 2: account has app connections for this host
-        let providers = apps::providers_for_host(hostname);
-        if providers.is_empty() {
-            return false;
-        }
+        // Check 2: account has app connections matching this host.
         match db::find_app_connections_by_account(&self.pool, &agent.account_id).await {
             Ok(connections) => connections
                 .iter()
-                .any(|c| providers.contains(&c.provider.as_str())),
+                .any(|c| apps::connection_matches_host(&c.provider, c.metadata.as_ref(), hostname)),
             Err(e) => {
                 tracing::warn!(error = %e, "has_account_credentials: app connections query failed");
                 false
