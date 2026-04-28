@@ -11,13 +11,16 @@ export interface GithubOAuthConfig {
 }
 
 /**
- * Env var contract for GitHub OAuth connections (github.com + Enterprise).
- * `gh` CLI, hub, and octokit-based tools read `GH_TOKEN` by default; the
- * gateway swaps the sentinel for the real OAuth access token on outbound
- * requests. For github.com, the matched hosts are `api.github.com`,
- * `github.com`, and `raw.githubusercontent.com`. For Enterprise, the host
- * is resolved per-connection from `metadata.baseUrl` (git HTTPS uses Basic
- * auth, `/api/v3/*` uses Bearer). See gateway `apps.rs`.
+ * Env var contract for github.com only. `gh` CLI, hub, and octokit-based
+ * tools read `GH_TOKEN` by default; the gateway swaps the sentinel for
+ * the real OAuth access token on outbound requests to `api.github.com`,
+ * `github.com`, and `raw.githubusercontent.com`. See gateway `apps.rs`.
+ *
+ * Enterprise deliberately does NOT export `GH_TOKEN`: gh CLI ignores it
+ * for enterprise hosts and uses `~/.config/gh/hosts.yml` instead, so
+ * setting `GH_TOKEN` would only confuse `gh auth status` into claiming
+ * github.com is configured. Enterprise consumers that need an env-based
+ * token must set one explicitly.
  */
 export const githubEnvMappings: EnvMapping[] = [
   { envName: "GH_TOKEN", placeholder: "humr:sentinel" },
