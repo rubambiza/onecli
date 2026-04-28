@@ -1,9 +1,5 @@
 import type { AppDefinition } from "./types";
-import {
-  buildGithubAuthUrl,
-  exchangeGithubCode,
-  githubEnvMappings,
-} from "./github-oauth";
+import { buildGithubAuthUrl, exchangeGithubCode } from "./github-oauth";
 
 const cfgFromConfig = (config: Record<string, string>) => {
   const baseUrl = config.baseUrl;
@@ -119,5 +115,11 @@ export const githubEnterprise: AppDefinition = {
       clientSecret: "GITHUB_ENTERPRISE_CLIENT_SECRET",
     },
   },
-  envMappings: githubEnvMappings,
+  // Enterprise auth flows via ~/.config/gh/hosts.yml — humr writes a
+  // host entry with `oauth_token: humr:sentinel` and the gateway swaps
+  // it on requests to metadata.baseUrl. GH_TOKEN deliberately not
+  // exported here: gh CLI reads it for github.com only, so setting it
+  // for enterprise makes `gh auth status` claim github.com is
+  // configured even when it isn't.
+  envMappings: [],
 };
